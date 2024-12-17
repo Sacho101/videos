@@ -1,0 +1,230 @@
+#include <Wire.h>               // Incluye la librería Wire para la comunicación I2C
+#include <LiquidCrystal_I2C.h>  // Incluye la librería LiquidCrystal_I2C
+#include <AHTxx.h>
+
+float AHT_Temperatura;
+float AHT_Humedad;
+AHTxx aht10(AHTXX_ADDRESS_X38, AHT1x_SENSOR);
+
+int lcdAddress = 0x27;
+LiquidCrystal_I2C lcd(lcdAddress, 16, 2);
+
+#define BOT1 32
+#define BOT2 33
+#define SensorPuerta 26
+#define LDR 35
+int bot;
+int Maquina;
+bool botonesPresionados = false;
+int umb_Tem = 25;
+
+#define PANTALLA_TEMPERATURA 0
+#define PANTALLA_HUMEDAD 1
+#define PANTALLA_LDR 2
+#define PANTALLA_PUERTA 3
+#define MODIFICAR_UMBRAL 4
+#define UMBRALMAS 5
+#define UMBRALMENOS 6
+#define INTERMEDIO_TEMPERATURA 7
+#define INTERMEDIO_HUMEDAD 8
+#define INTERMEDIO_LDR 9
+#define INTERMEDIO_PUERTA 10
+
+void setup() {
+  pinMode(BOT1, INPUT_PULLUP);
+  pinMode(BOT2, INPUT_PULLUP);
+  pinMode(SensorPuerta, INPUT);
+  pinMode(LDR, INPUT);
+
+  Wire.begin();
+  lcd.init();
+  lcd.backlight();
+}
+
+void loop() {
+  AHT_Temperatura = aht10.readTemperature();
+  AHT_Humedad = aht10.readHumidity();
+
+  if (digitalRead(BOT1) == LOW && digitalRead(BOT2) == LOW) {
+    botonesPresionados = true;
+  } else if (botonesPresionados) {
+    botonesPresionados = false;
+    if (Maquina != MODIFICAR_UMBRAL) {
+      lcd.clear();
+      Maquina = MODIFICAR_UMBRAL;
+
+    } else {
+      Maquina = INTERMEDIO_TEMPERATURA;
+    }
+  }
+
+  switch (Maquina) {
+    case PANTALLA_TEMPERATURA:
+      lcd.setCursor(0, 0);
+      lcd.print("Temperatura es:");
+      lcd.setCursor(0, 1);
+      lcd.print(AHT_Temperatura);
+      if (AHT_Temperatura > umb_Tem) {
+        lcd.setCursor(6, 1);
+        lcd.print("Supera UMB");
+      } else {
+        lcd.print("          ");
+      }
+      if (digitalRead(BOT1) == LOW) {
+        bot = 1;
+
+        Maquina = INTERMEDIO_HUMEDAD;
+
+
+      } else if (digitalRead(BOT2) == LOW) {
+        bot = 2;
+        Maquina = INTERMEDIO_PUERTA;
+      }
+      break;
+
+    case INTERMEDIO_TEMPERATURA:
+
+      if (bot == 1) {
+        if (digitalRead(BOT1) == HIGH) {
+          Maquina = PANTALLA_TEMPERATURA;
+          lcd.clear();
+        }
+      }
+      if (bot == 2) {
+        if (digitalRead(BOT2) == HIGH) {
+          Maquina = PANTALLA_TEMPERATURA;
+          lcd.clear();
+        }
+      }
+      break;
+
+    case PANTALLA_HUMEDAD:
+      lcd.setCursor(0, 0);
+      lcd.print("Humedad es:");
+      lcd.setCursor(0, 1);
+      lcd.print(AHT_Humedad);
+      if (digitalRead(BOT1) == LOW) {
+        bot = 1;
+        Maquina = INTERMEDIO_LDR;
+
+      } else if (digitalRead(BOT2) == LOW) {
+        bot = 2;
+
+        Maquina = INTERMEDIO_TEMPERATURA;
+      }
+
+      break;
+    case INTERMEDIO_HUMEDAD:
+      if (bot == 1) {
+        if (digitalRead(BOT1) == HIGH) {
+          Maquina = PANTALLA_HUMEDAD;
+          lcd.clear();
+        }
+      }
+      if (bot == 2) {
+        if (digitalRead(BOT2) == HIGH) {
+          Maquina = PANTALLA_HUMEDAD;
+          lcd.clear();
+        }
+      }
+      break;
+
+    case PANTALLA_LDR:
+      lcd.setCursor(0, 0);
+      lcd.print("La Luz es:");
+      lcd.setCursor(0, 1);
+      lcd.print(analogRead(LDR));
+      if (digitalRead(BOT1) == LOW) {
+        bot = 1;
+
+        Maquina = INTERMEDIO_PUERTA;
+
+      } else if (digitalRead(BOT2) == LOW) {
+        bot = 2;
+
+        Maquina = INTERMEDIO_HUMEDAD;
+      }
+
+      break;
+    case INTERMEDIO_LDR:
+      if (bot == 1) {
+        if (digitalRead(BOT1) == HIGH) {
+          lcd.clear();
+          Maquina = PANTALLA_LDR;
+        }
+      }
+      if (bot == 2) {
+        if (digitalRead(BOT2) == HIGH) {
+          lcd.clear();
+          Maquina = PANTALLA_LDR;
+        }
+      }
+      break;
+    case PANTALLA_PUERTA:
+      lcd.setCursor(0, 0);
+      lcd.print("La puerta esta:");
+      lcd.setCursor(0, 1);
+      if (digitalRead(SensorPuerta) == LOW) {
+        lcd.print("Cerrada");
+      } else {
+        lcd.print("Abierta");
+      }
+      if (digitalRead(BOT1) == LOW) {
+        bot = 1;
+
+        Maquina = INTERMEDIO_TEMPERATURA;
+
+      } else if (digitalRead(BOT2) == LOW) {
+        bot = 2;
+
+        Maquina = INTERMEDIO_LDR;
+      }
+      break;
+
+    case INTERMEDIO_PUERTA:
+      if (bot == 1) {
+        if (digitalRead(BOT1) == HIGH) {
+          lcd.clear();
+          Maquina = PANTALLA_PUERTA;
+        }
+      }
+      if (bot == 2) {
+        if (digitalRead(BOT2) == HIGH) {
+          lcd.clear();
+          Maquina = PANTALLA_PUERTA;
+        }
+      }
+      break;
+
+    case MODIFICAR_UMBRAL:
+      lcd.setCursor(0, 0);
+      lcd.print("Umbral Temp:");
+      lcd.setCursor(1, 1);
+      lcd.print(umb_Tem);
+      if (digitalRead(BOT1) == LOW && digitalRead(BOT2) == HIGH) {
+        lcd.clear();
+        Maquina = UMBRALMAS;
+
+
+      } else if (digitalRead(BOT2) == LOW && digitalRead(BOT1) == HIGH) {
+        lcd.clear();
+        Maquina = UMBRALMENOS;
+      }
+      break;
+
+    case UMBRALMAS:
+      if (digitalRead(BOT1) == HIGH) {
+        umb_Tem++;
+      }
+      Maquina = MODIFICAR_UMBRAL;
+
+      break;
+
+    case UMBRALMENOS:
+      if (digitalRead(BOT2) == HIGH) {
+        umb_Tem--;
+      }
+      Maquina = MODIFICAR_UMBRAL;
+      break;
+  }
+}
